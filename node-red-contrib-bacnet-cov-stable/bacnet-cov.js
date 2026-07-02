@@ -200,23 +200,19 @@ module.exports = function (RED) {
         );
       };
 
-      // On a FRESH subscribe (startup, forced re-subscribe, post-error) first
-      // send a cancel for this procId+object. This clears any stale/dead
-      // subscription the device may still hold from a previous session that
-      // wasn't cleanly cancelled (e.g. a Node-RED crash, or a leftover entry
-      // from another client). Without this, some devices (incl. the UWP 3.0)
-      // ACK the new subscription but never deliver notifications — "subscribed"
-      // but silent. Healthy renewals skip the cancel to avoid a delivery gap.
-      if (isRenewal) {
-        doSubscribe();
-      } else {
-        client.subscribeCov(
-          node.deviceAddress, objId, node.procId,
-          true,                      // cancel = true -> clear stale entry
-          false, 0,
-          () => { if (!closed) doSubscribe(); }   // ignore cancel result, then subscribe
-        );
-      }
+      // ALWAYS cancel-then-subscribe — for fresh subscribes this clears any
+      // stale/dead entry the device still holds (some devices, incl. the
+      // UWP 3.0, otherwise ACK a new subscription but never deliver).
+      // For renewals this guards against devices that ACK a renewal without
+      // actually extending their table entry: every renewal becomes a
+      // genuinely fresh subscription, established while the old one is still
+      // alive, so the swap gap is only milliseconds.
+      client.subscribeCov(
+        node.deviceAddress, objId, node.procId,
+        true,                      // cancel = true -> clear existing entry
+        false, 0,
+        () => { if (!closed) doSubscribe(); }   // ignore cancel result, then subscribe
+      );
     }
 
     node.onNotification = function (payload, confirmed) {

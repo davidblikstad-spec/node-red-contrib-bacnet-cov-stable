@@ -105,3 +105,11 @@ UWP 3.0 — otherwise leave in an "ACKed but never delivers" state (status shows
 *subscribed* but no notifications arrive). Healthy lifetime renewals skip the
 cancel so there is no delivery gap. If you previously had to toggle object-type
 + deploy twice to make a subscription start working, this removes that need.
+
+### v1.1.2 — hard renewals
+
+Renewals now also cancel-then-resubscribe (same as startup). Guards against
+devices that ACK a renewal without actually extending their subscription table
+entry — symptom: works after a fresh subscribe, goes silent ~1 lifetime later
+while status still shows green "renewed". Every renewal is now a genuinely
+fresh subscription, created while the old one is still alive (ms-level gap).
