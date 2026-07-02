@@ -1,0 +1,158 @@
+<script type="text/javascript">
+  RED.nodes.registerType('bacnet-cov-client', {
+    category: 'config',
+    defaults: {
+      name: { value: '' },
+      port: { value: 47808, validate: RED.validators.number() },
+      iface: { value: '' },
+      broadcast: { value: '' },
+      apduTimeout: { value: 6000, validate: RED.validators.number() }
+    },
+    label: function () {
+      return this.name || 'bacnet:' + (this.port || 47808);
+    }
+  });
+
+  RED.nodes.registerType('bacnet-cov', {
+    category: 'network',
+    color: '#8fbc8f',
+    defaults: {
+      name: { value: '' },
+      client: { value: '', type: 'bacnet-cov-client', required: true },
+      deviceAddress: { value: '', required: true },
+      objectType: { value: 3, required: true, validate: RED.validators.number() },
+      objectInstance: { value: 0, required: true, validate: RED.validators.number() },
+      lifetime: { value: 300, validate: RED.validators.number() },
+      confirmed: { value: true },
+      renewPercent: { value: 70, validate: RED.validators.number() },
+      retryBaseSec: { value: 5, validate: RED.validators.number() },
+      retryMaxSec: { value: 300, validate: RED.validators.number() },
+      emitStatusEvents: { value: true }
+    },
+    inputs: 1,
+    outputs: 2,
+    outputLabels: ['COV notification', 'lifecycle status'],
+    icon: 'bridge.svg',
+    label: function () {
+      if (this.name) return this.name;
+      const t = { 0: 'AI', 1: 'AO', 2: 'AV', 3: 'BI', 4: 'BO', 5: 'BV', 13: 'MSI', 14: 'MSO', 19: 'MSV' }[this.objectType] || this.objectType;
+      return 'COV ' + t + ':' + this.objectInstance;
+    },
+    paletteLabel: 'bacnet cov'
+  });
+</script>
+
+<script type="text/html" data-template-name="bacnet-cov-client">
+  <div class="form-row">
+    <label><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-config-input-name" placeholder="optional">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-plug"></i> Local port</label>
+    <input type="text" id="node-config-input-port" placeholder="47808">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-sitemap"></i> Interface</label>
+    <input type="text" id="node-config-input-iface" placeholder="leave empty = all interfaces">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-bullhorn"></i> Broadcast</label>
+    <input type="text" id="node-config-input-broadcast" placeholder="e.g. 10.11.100.255 (optional)">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-clock-o"></i> APDU timeout</label>
+    <input type="text" id="node-config-input-apduTimeout" placeholder="6000"> ms
+  </div>
+  <div class="form-tips">
+    If another BACnet package (e.g. discovery nodes) is installed in this
+    Node-RED and already binds UDP 47808, set a different local port here
+    (e.g. <b>47809</b>). COV notifications are unicast back to the port the
+    subscription was sent from, so a non-standard port works fine.
+  </div>
+</script>
+
+<script type="text/html" data-template-name="bacnet-cov">
+  <div class="form-row">
+    <label><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="e.g. Office button">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-random"></i> Client</label>
+    <input type="text" id="node-input-client">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-server"></i> Device addr</label>
+    <input type="text" id="node-input-deviceAddress" placeholder="10.11.100.152">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-cube"></i> Object type</label>
+    <select id="node-input-objectType">
+      <option value="0">0 – Analog Input</option>
+      <option value="1">1 – Analog Output</option>
+      <option value="2">2 – Analog Value</option>
+      <option value="3">3 – Binary Input</option>
+      <option value="4">4 – Binary Output</option>
+      <option value="5">5 – Binary Value</option>
+      <option value="13">13 – Multi-state Input</option>
+      <option value="14">14 – Multi-state Output</option>
+      <option value="19">19 – Multi-state Value</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-hashtag"></i> Instance</label>
+    <input type="text" id="node-input-objectInstance" placeholder="e.g. 48">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-hourglass-half"></i> Lifetime</label>
+    <input type="text" id="node-input-lifetime" style="width:80px"> seconds
+    <span style="margin-left:8px;color:#888">(0 = indefinite)</span>
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-refresh"></i> Renew at</label>
+    <input type="text" id="node-input-renewPercent" style="width:60px"> % of lifetime
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-check"></i> Confirmed</label>
+    <input type="checkbox" id="node-input-confirmed" style="width:auto">
+    <span style="color:#888">device requires an ACK per notification (node sends it)</span>
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-repeat"></i> Retry base</label>
+    <input type="text" id="node-input-retryBaseSec" style="width:60px"> s,
+    max <input type="text" id="node-input-retryMaxSec" style="width:60px"> s
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-heartbeat"></i> Status out</label>
+    <input type="checkbox" id="node-input-emitStatusEvents" style="width:auto">
+    <span style="color:#888">emit lifecycle events on output 2</span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="bacnet-cov">
+  <p>Subscribes to BACnet <b>Change-of-Value</b> notifications for one object
+  and manages the whole subscription lifecycle: renewal before the lifetime
+  expires, exponential-backoff retry on failure, ACK of confirmed
+  notifications, and clean cancel on redeploy.</p>
+
+  <h3>Output 1 – notifications</h3>
+  <dl class="message-properties">
+    <dt>payload</dt><dd>the object's Present_Value (e.g. <code>0/1</code> for binary)</dd>
+    <dt>changed</dt><dd><code>true</code> if Present_Value differs from the previous notification</dd>
+    <dt>statusFlags / properties / timeRemaining</dt><dd>additional decoded data</dd>
+  </dl>
+
+  <h3>Output 2 – lifecycle status</h3>
+  <p><code>payload.event</code> is one of <code>subscribed</code>,
+  <code>renewed</code>, <code>error</code>, <code>client-error</code>,
+  <code>cancelled</code>. Wire this to your alerting: if you see
+  <code>error</code> events repeating, the device is unreachable and no
+  button presses are arriving.</p>
+
+  <h3>Input</h3>
+  <p>Any message forces an immediate re-subscribe (useful for testing).</p>
+
+  <h3>Notes for Carlo Gavazzi UWP 3.0</h3>
+  <p>All UWP 3.0 BACnet objects support COV. Find your object's
+  type/instance with a device object scan, or from the UWP Tool's BACnet
+  map. Lifetime 300 s with renewal at 70 % is a good default.</p>
+</script>
