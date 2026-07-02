@@ -175,26 +175,48 @@ module.exports = function (RED) {
       const client = node.shared.getClient();
       node.status({ fill: 'yellow', shape: 'ring', text: (isRenewal ? 'renewing' : 'subscribing') + '…' });
 
-      client.subscribeCov(
-        node.deviceAddress, objId, node.procId,
-        false,                       // cancel = false -> (re)subscribe
-        node.confirmed, node.lifetime,
-        (err) => {
-          if (closed) return;
-          if (err) {
-            subscribed = false;
-            return scheduleRetry(err);
+      // The actual (re)subscribe.
+      const doSubscribe = () => {
+        if (closed) return;
+        client.subscribeCov(
+          node.deviceAddress, objId, node.procId,
+          false,                     // cancel = false -> (re)subscribe
+          node.confirmed, node.lifetime,
+          (err) => {
+            if (closed) return;
+            if (err) {
+              subscribed = false;
+              return scheduleRetry(err);
+            }
+            subscribed = true;
+            retryCount = 0;
+            node.status({
+              fill: 'green', shape: 'dot',
+              text: objLabel + (lastValue === null ? ' subscribed' : ' = ' + lastValue)
+            });
+            statusEvent(isRenewal ? 'renewed' : 'subscribed');
+            scheduleRenew();
           }
-          subscribed = true;
-          retryCount = 0;
-          node.status({
-            fill: 'green', shape: 'dot',
-            text: objLabel + (lastValue === null ? ' subscribed' : ' = ' + lastValue)
-          });
-          statusEvent(isRenewal ? 'renewed' : 'subscribed');
-          scheduleRenew();
-        }
-      );
+        );
+      };
+
+      // On a FRESH subscribe (startup, forced re-subscribe, post-error) first
+      // send a cancel for this procId+object. This clears any stale/dead
+      // subscription the device may still hold from a previous session that
+      // wasn't cleanly cancelled (e.g. a Node-RED crash, or a leftover entry
+      // from another client). Without this, some devices (incl. the UWP 3.0)
+      // ACK the new subscription but never deliver notifications — "subscribed"
+      // but silent. Healthy renewals skip the cancel to avoid a delivery gap.
+      if (isRenewal) {
+        doSubscribe();
+      } else {
+        client.subscribeCov(
+          node.deviceAddress, objId, node.procId,
+          true,                      // cancel = true -> clear stale entry
+          false, 0,
+          () => { if (!closed) doSubscribe(); }   // ignore cancel result, then subscribe
+        );
+      }
     }
 
     node.onNotification = function (payload, confirmed) {

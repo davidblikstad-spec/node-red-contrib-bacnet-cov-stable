@@ -95,3 +95,13 @@ write null. If schedules/wall switches stop responding after a write, send
 
 Uses the same shared `bacnet-cov-client` config node (port 47809 advice
 applies here too).
+
+### v1.1.1 — self-healing subscribe
+
+The COV node now sends a **cancel before every fresh subscribe** (startup,
+forced re-subscribe, post-error). This clears any stale/dead subscription the
+device still holds from a previous session, which some devices — including the
+UWP 3.0 — otherwise leave in an "ACKed but never delivers" state (status shows
+*subscribed* but no notifications arrive). Healthy lifetime renewals skip the
+cancel so there is no delivery gap. If you previously had to toggle object-type
++ deploy twice to make a subscription start working, this removes that need.

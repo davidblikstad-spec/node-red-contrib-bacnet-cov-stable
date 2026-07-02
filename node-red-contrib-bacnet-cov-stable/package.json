@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-bacnet-cov-stable",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Stable BACnet nodes for Node-RED: COV subscription (auto-resubscribe, renewal, backoff) and Present_Value write (plain-value input for dashboard sliders/switches, priority + relinquish, latest-wins coalescing).",
   "keywords": [
     "node-red",
