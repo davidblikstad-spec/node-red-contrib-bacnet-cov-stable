@@ -71,3 +71,27 @@ your cue to alert (SMS via your existing GatewayAPI flow, for instance).
 
 Send any message into the node's input → immediate forced re-subscribe.
 Watch the node status: green dot `obj 3:48 = 1` on each notification.
+
+---
+
+## bacnet write (v1.1.0)
+
+Commands **Present_Value** from plain input values — built to sit directly
+behind a Dashboard slider, switch or button.
+
+- `msg.payload = 30` → writes 30 (Real for analog objects)
+- `msg.payload = true/false` → 1/0 (Enumerated for binary objects)
+- `msg.payload = null` (or `msg.relinquish = true`) → **relinquish**: releases
+  the priority slot so the controller's own logic takes back over
+- `msg.priority = 12` → per-message priority override (default from config, 8)
+
+**Latest-wins coalescing:** while a write is in flight, newer slider values
+replace the queued one — 25 rapid inputs become ~2 writes, ending on the final
+value. Failed writes retry (configurable) but never with stale data.
+
+**Remember the relinquish.** A written value HOLDS at its priority until you
+write null. If schedules/wall switches stop responding after a write, send
+`payload: null`. Optional "relinquish on redeploy" checkbox in the node config.
+
+Uses the same shared `bacnet-cov-client` config node (port 47809 advice
+applies here too).

@@ -1,0 +1,113 @@
+<script type="text/javascript">
+  RED.nodes.registerType('bacnet-write', {
+    category: 'network',
+    color: '#d8bfd8',
+    defaults: {
+      name: { value: '' },
+      client: { value: '', type: 'bacnet-cov-client', required: true },
+      deviceAddress: { value: '', required: true },
+      objectType: { value: 1, required: true, validate: RED.validators.number() },
+      objectInstance: { value: 0, required: true, validate: RED.validators.number() },
+      priority: { value: 8, validate: RED.validators.number() },
+      retries: { value: 2, validate: RED.validators.number() },
+      retryDelayMs: { value: 1000, validate: RED.validators.number() },
+      relinquishOnClose: { value: false }
+    },
+    inputs: 1,
+    outputs: 2,
+    outputLabels: ['write result', 'errors / status'],
+    icon: 'arrow-in.svg',
+    align: 'right',
+    label: function () {
+      if (this.name) return this.name;
+      const t = { 0: 'AI', 1: 'AO', 2: 'AV', 3: 'BI', 4: 'BO', 5: 'BV', 13: 'MSI', 14: 'MSO', 19: 'MSV' }[this.objectType] || this.objectType;
+      return 'write ' + t + ':' + this.objectInstance;
+    },
+    paletteLabel: 'bacnet write'
+  });
+</script>
+
+<script type="text/html" data-template-name="bacnet-write">
+  <div class="form-row">
+    <label><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="e.g. Office lights level">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-random"></i> Client</label>
+    <input type="text" id="node-input-client">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-server"></i> Device addr</label>
+    <input type="text" id="node-input-deviceAddress" placeholder="10.11.100.152">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-cube"></i> Object type</label>
+    <select id="node-input-objectType">
+      <option value="1">1 – Analog Output</option>
+      <option value="2">2 – Analog Value</option>
+      <option value="4">4 – Binary Output</option>
+      <option value="5">5 – Binary Value</option>
+      <option value="14">14 – Multi-state Output</option>
+      <option value="19">19 – Multi-state Value</option>
+      <option value="0">0 – Analog Input</option>
+      <option value="3">3 – Binary Input</option>
+      <option value="13">13 – Multi-state Input</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-hashtag"></i> Instance</label>
+    <input type="text" id="node-input-objectInstance" placeholder="e.g. 16">
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-sort-numeric-asc"></i> Priority</label>
+    <input type="text" id="node-input-priority" style="width:60px"> (1–16, 8 = manual operator)
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-repeat"></i> Retries</label>
+    <input type="text" id="node-input-retries" style="width:60px"> ×, delay
+    <input type="text" id="node-input-retryDelayMs" style="width:70px"> ms
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-unlock"></i> On redeploy</label>
+    <input type="checkbox" id="node-input-relinquishOnClose" style="width:auto">
+    <span style="color:#888">relinquish (release the priority slot) when the flow stops</span>
+  </div>
+  <div class="form-tips">
+    Wire a Dashboard slider/switch straight in: <code>msg.payload</code> is the
+    value. Send <code>null</code> (or <code>msg.relinquish=true</code>) to
+    release control back to the controller — a written value <b>holds</b> at
+    this priority until released.
+  </div>
+</script>
+
+<script type="text/html" data-help-name="bacnet-write">
+  <p>Writes <b>Present_Value</b> of one BACnet object from plain input values —
+  built to sit directly behind a Dashboard slider, switch or button.</p>
+
+  <h3>Input</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">number | boolean | null</span></dt>
+    <dd>the value to write. Booleans become 1/0 for binary objects. Strings
+    containing numbers are accepted. <code>null</code> relinquishes.</dd>
+    <dt class="optional">priority <span class="property-type">number</span></dt>
+    <dd>override the configured priority (1–16) for this message.</dd>
+    <dt class="optional">relinquish <span class="property-type">boolean</span></dt>
+    <dd><code>true</code> = release the priority slot (same as payload null).</dd>
+    <dt class="optional">tag <span class="property-type">number</span></dt>
+    <dd>force a BACnet application tag (advanced; normally auto: Real for
+    analog, Enumerated for binary, Unsigned for multi-state).</dd>
+  </dl>
+
+  <h3>Behaviour</h3>
+  <p><b>Latest wins:</b> while a write is in flight, newer values replace the
+  queued one — a fast-moving slider never builds a backlog. Failed writes are
+  retried (configurable), but never with stale data if a newer value arrived.</p>
+  <p><b>Priority latching:</b> BACnet holds your written value at the chosen
+  priority until you relinquish. If schedules/switches stop working after you
+  write, you forgot to send <code>null</code>.</p>
+
+  <h3>Outputs</h3>
+  <p>Output 1: the original message with <code>payload</code> = written value,
+  <code>ok:true</code>, plus object/priority details. Output 2: write errors
+  and lifecycle events — wire to your alerting.</p>
+</script>
